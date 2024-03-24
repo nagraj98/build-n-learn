@@ -1,6 +1,3 @@
-Okay now my read me is read, and i have pushed it to github, now based o
-
-
 # Let's Build and Learn Pinecone (and CLIP too)
 
 This project is an exploration into multimodal semantic search, and we will build a meme search-engine. The goal will be to input text queries, and find the most semantically related memes in our dataset. 
