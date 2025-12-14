@@ -1,71 +1,80 @@
-# We will be implementing attention from the attention is all you need paper.
+"""
+We will be implementing attention from the attention is all you need paper.
+"""
 
+import math
 import numpy as np
 import scipy as sp
-import math
-
-dmodel = 64
-h = 8
-dq = dk = int(dmodel/h)
-dv = int(dmodel/h)
-
-Wq = np.random.rand(dmodel, dq)
-Wk = np.random.rand(dmodel, dk)
-Wv = np.random.rand(dmodel, dv)
 
 
-input_tokens = ["Hello", "this", "is", "Harry", "calling", "from", "Hogwarts"]
-# x = 7
+class AttentionHead:
+    """
+    A single Attention Head with its own query, key and value weights
+    """
 
-# def get_embedding(token, dmodel):
-#     embedding = token
+    def __init__(self, dmodel, dq, dk, dv):
+        self.dmodel = dmodel
+        self.dk = dk
+        self.dq = dq
+        self.dv = dv
 
-#     # size of embeddings = embedding_size
-#     # assume embedding size is 512
-#     # d_model = 512
-#     return 
+        # Initialise the weight matrices for Query, Key and Value
+        self.wq = np.random.rand(dmodel, dq)
+        self.wk = np.random.rand(dmodel, dk)
+        self.wv = np.random.rand(dmodel, dv)
 
-# input_embeddings = [get_embedding(token) for token in input_tokens]
+        self.query = None
+        self.key = None
+        self.value = None
+        self.attention = None
+        
 
-def get_X(input_tokens):
-    return np.random.rand(len(input_tokens), dmodel)
+    def apply_self_attention(self, input_X):
+        """
+        Docstring for apply_self_attention
+        
+        :param input_X: matrix of the input embbeddings
+        """
 
-X = get_X(input_tokens)
-# this matrix becomes 7*512
+        # transform the input into Query, Key and Value
+        query = np.matmul(input_X, self.wq) # so this gives us x*dq or x*64
+        key = np.matmul(input_X, self.wk) # so this gives us x*dk or x*64
+        value = np.matmul(input_X, self.wv)
 
-# 8 attention heads, so one head can be of dmodel/8
+        # apply attention formula : softmax((Q.Kt)/√dk).V
+        q_dot_ktranspose = np.matmul(query, np.transpose(key))/math.sqrt(self.dk)
+        qkt_softmax = sp.special.softmax(q_dot_ktranspose, axis=1)
+        self.attention = np.matmul(qkt_softmax, value)
 
-Query = np.matmul(X, Wq) # so this gives us x*dq or x*64
-Key = np.matmul(X, Wk) # so this gives us x*dk or x*64
-Value = np.matmul(X, Wv)
+        # TODO : Now using this attention matrix, what do we update ?
 
-def attention():
-    QKt = np.matmul(Query, np.transpose(Key))/math.sqrt(dk)
-    QKt_softmax = sp.special.softmax(QKt, axis=1)
-    attn = np.matmul(QKt_softmax, Value)
-    print(attn)
-    # print(QKt)
+def main():
 
-# print(X)
-# print(Wq)
-attention()
+    
+    dmodel = 64
+    heads_count = 8
+    dq = dk = dv = int(dmodel/heads_count)
 
-# for these input embeddings, 
-# we want a 7*7 matrix that tells the relation between all word pairs.
+    attention_heads = [AttentionHead(dmodel, dq, dk, dv) for i in range(heads_count)]
 
-# my = [1,2,3,4,5,6,7,8,9,10]
+    input_chunk = ["Hello this is Harry calling from Hogwarts"]
 
-# def softmax(nums) :
-#     exp_nums = [math.exp(num) for num in nums]
-#     return [num/sum(exp_nums) for num in exp_nums]
+    def tokenize(input_chunk: str):
+        print("splitting the input into tokens")
+        return input_chunk.split()
 
-# print(softmax(my))
-# print(sum(softmax(my)))
+    def get_embedding(token: str):
+        print("getting the embedding for the token")
+        return len(token) * [0.01]  # dummy embedding
 
+    def get_X(input_chunk: str):
+        input_tokens = tokenize(input_chunk)
+        input_embeddings = [get_embedding(token) for token in input_tokens]
+        print(np.array(input_embeddings))
+        return np.array(input_embeddings)
 
+    X = get_X(input_chunk)
+    # this matrix becomes 7*512
 
-# # Difference between softmax and normalisation :
-# normalisation just scales the inputs between 0 an d1
-# softmax does couple of things in addition to plain normalisation :
-#     1. exphasizing large values, diminishing small values
-#     2. handling negative inputs
+if __name__ == "__main__":
+    main()
