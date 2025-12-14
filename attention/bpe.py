@@ -187,8 +187,7 @@ class Tokenizer:
         """
 
         return "".join(encoded_tokens)
-
-
+        
 
 def main():
 

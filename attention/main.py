@@ -3,8 +3,48 @@ We will be implementing attention from the attention is all you need paper.
 """
 
 import math
+import json
+import os
 import numpy as np
 import scipy as sp
+
+from attention.bpe import Tokenizer
+
+
+class Embedder:
+    """
+    Docstring for Embedder
+    """
+    def __init__(self, vocabulary: list, embedding_size: int = 512):
+        self.vocabulary = vocabulary
+        self.embedding_matrix = np.random.rand(len(vocabulary), embedding_size)
+
+    def get_embedding(self, token: str):
+        """
+        Docstring for get_embedding
+        
+        :param token: input token to get embedding for
+        :return: embedding vector for the token
+        """
+
+        if token in self.vocabulary:
+            token_index = self.vocabulary.index(token)
+            return self.embedding_matrix[token_index]
+        else:
+            raise ValueError(f"Token {token} not in vocabulary")
+    
+    def get_token_from_embedding(self, embedding: np.array):
+        """
+        Docstring for get_token_from_embedding
+        
+        :param embedding: input embedding vector
+        :return: token corresponding to the embedding
+        """
+
+        # Find the closest embedding in the embedding matrix
+        distances = np.linalg.norm(self.embedding_matrix - embedding, axis=1)
+        closest_index = np.argmin(distances)
+        return self.vocabulary[closest_index]
 
 
 class AttentionHead:
@@ -29,52 +69,64 @@ class AttentionHead:
         self.attention = None
         
 
-    def apply_self_attention(self, input_X):
+    def apply_self_attention(self, embeddings_matrix: np.array):
         """
         Docstring for apply_self_attention
         
-        :param input_X: matrix of the input embbeddings
+        :param embeddings_matrix: matrix of the input embbeddings, of size (num_tokens, dmodel) or x*dmodel
         """
 
         # transform the input into Query, Key and Value
-        query = np.matmul(input_X, self.wq) # so this gives us x*dq or x*64
-        key = np.matmul(input_X, self.wk) # so this gives us x*dk or x*64
-        value = np.matmul(input_X, self.wv)
+        query = np.matmul(embeddings_matrix, self.wq) # so this gives us x*dq or x*64
+        key = np.matmul(embeddings_matrix, self.wk) # so this gives us x*dk or x*64
+        value = np.matmul(embeddings_matrix, self.wv)
 
         # apply attention formula : softmax((Q.Kt)/√dk).V
         q_dot_ktranspose = np.matmul(query, np.transpose(key))/math.sqrt(self.dk)
         qkt_softmax = sp.special.softmax(q_dot_ktranspose, axis=1)
-        self.attention = np.matmul(qkt_softmax, value)
+        self.attention = np.matmul(qkt_softmax, value) # x*(dmodel/h)
 
-        # TODO : Now using this attention matrix, what do we update ?
+        # TODO : Now using this attention matrix, how do we update the embeddings ?
 
 def main():
 
-    
+    OUTPUT_DIRECTORY = "./attention/vocab/"
     dmodel = 64
     heads_count = 8
     dq = dk = dv = int(dmodel/heads_count)
 
     attention_heads = [AttentionHead(dmodel, dq, dk, dv) for i in range(heads_count)]
 
-    input_chunk = ["Hello this is Harry calling from Hogwarts"]
+    # splitting the input into tokens using the tokenizer
+    vocabulary_map_jsonsafe = json.load(open(os.path.join(OUTPUT_DIRECTORY, "vocabulary_map.json"), 'r', encoding='utf-8'))
+    vocabulary_map = {
+        tuple(k.split("\u241F")): v for k, v in  vocabulary_map_jsonsafe.items()
+    }
+    tokenizer = Tokenizer(vocabulary_map=vocabulary_map)
 
-    def tokenize(input_chunk: str):
-        print("splitting the input into tokens")
-        return input_chunk.split()
+    # converting the tokens into embeddings using the embedder
+    vocabulary = open(os.path.join(OUTPUT_DIRECTORY, "vocabulary.txt"), 'r', encoding='utf-8').read().splitlines()
+    embedder = Embedder(vocabulary=vocabulary, embedding_size=dmodel)
 
-    def get_embedding(token: str):
-        print("getting the embedding for the token")
-        return len(token) * [0.01]  # dummy embedding
+    # Start the processing
+    input_chunk = ["The cat sat on the mat."]
 
-    def get_X(input_chunk: str):
-        input_tokens = tokenize(input_chunk)
-        input_embeddings = [get_embedding(token) for token in input_tokens]
-        print(np.array(input_embeddings))
-        return np.array(input_embeddings)
+    tokenizer.encode_input(input_chunk)
+    embeddings = [embedder.get_embedding(token) for token in tokenizer.encoded_tokens]
+    embeddings_matrix =  np.array(embeddings)
 
-    X = get_X(input_chunk)
-    # this matrix becomes 7*512
+    for head in attention_heads:
+        head.apply_self_attention(embeddings_matrix)
+
+    Z_concat = np.concatenate([head.attention for head in attention_heads], axis=1)  # x*dmodel
+
+    # final projection
+    w0 = np.random.rand(dmodel, dmodel)
+    Z_out = np.matmul(Z_concat, w0)  # x*dmodel
+
+    # add the projection output to the original embeddings (residual connection)
+    final_embeddings = Z_out + embeddings_matrix  # x*dmodel
+
 
 if __name__ == "__main__":
     main()
