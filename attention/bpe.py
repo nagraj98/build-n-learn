@@ -3,7 +3,7 @@
 import re
 import os
 import json
-
+from datetime import datetime
 
 class BPEEncoder:
     """
@@ -62,6 +62,8 @@ class BPEEncoder:
         :param frequency_threshold: Description
         :type frequency_threshold: int
         """
+        
+        start_time = datetime.now()
 
         content_chars = list(self.content)
 
@@ -109,6 +111,8 @@ class BPEEncoder:
             content_chars = new_content_chars
             itr+=1
 
+        end_time = datetime.now()
+        print(f"time taken for building vocabulary : {end_time - start_time}")
         print(f"iteration {itr}, map_length is {len(pair_map)}, current max_frequency is {max_frequency}, length of vocabulary is {len(self.vocabulary)}")
 
         #save the self.vocabulary to a file
@@ -133,11 +137,13 @@ my.__str__()
 
 class Tokenizer:
 
-    def __init__(self, input_text: str, vocabulary_map: dict):
-        self.input_text = input_text
+    def __init__(self, vocabulary_map: dict):
         self.vocabulary_map = vocabulary_map
+
+        self.input_text : str = None
+        self.encoded_tokens : list = None
     
-    def encode_input(self):
+    def encode_input(self, input_text: str ):
         """
         Docstring for encode_input
         tokenize the input text using the vocabulary map
@@ -148,10 +154,10 @@ class Tokenizer:
         :type vocabulary_map: dict
         """
 
-        input_chars = list(self.input_text)
+        input_chars = list(input_text)
         
         for mapping, token in self.vocabulary_map.items():
-            encoded_tokens = []
+            self.encoded_tokens = []
             pair_length = len(token)
 
             # loop over the input chars to find the mapping and replace with token
@@ -159,24 +165,50 @@ class Tokenizer:
             while(i < (len(input_chars) - (pair_length - 1))):
                 pair = tuple(input_chars[i:i+pair_length])
                 if pair == mapping:
-                    encoded_tokens.append(token)
+                    self.encoded_tokens.append(token)
                     i += pair_length
                 else:
-                    encoded_tokens.append(input_chars[i])
+                    self.encoded_tokens.append(input_chars[i])
                     i += 1
+            # append the remaining chars
+            while(i < len(input_chars)):
+                self.encoded_tokens.append(input_chars[i])
+                i += 1
 
-        return encoded_tokens
+            input_chars = self.encoded_tokens
+    
+    
+    def decode_input(self, encoded_tokens: list):
+        """
+        Docstring for decode_input
+        decode the encoded tokens back to original text
+        
+        :type encoded_tokens: list
+        """
+
+        return "".join(encoded_tokens)
 
 
 
 def main():
 
-    INPUT_DATA_DIRECTORY = "./data/"
-    OUTPUT_DIRECTORY = "./vocab/"
+    INPUT_DATA_DIRECTORY = "./attention/data/"
+    OUTPUT_DIRECTORY = "./attention/vocab/"
 
-    BPEEncoder_instance = BPEEncoder(data_directory=INPUT_DATA_DIRECTORY, output_directory=OUTPUT_DIRECTORY)
-    BPEEncoder_instance.build_vocabulary(vocab_size=200, frequency_threshold=200)
+    # # Uncomment below lines to build the vocabulary from scratch
+    # BPEEncoder_instance = BPEEncoder(data_directory=INPUT_DATA_DIRECTORY, output_directory=OUTPUT_DIRECTORY)
+    # BPEEncoder_instance.build_vocabulary(vocab_size=200, frequency_threshold=200)
 
+    # load the vocabulary map from the json file
+    vocabulary_map_jsonsafe = json.load(open(os.path.join(OUTPUT_DIRECTORY, "vocabulary_map.json"), 'r', encoding='utf-8'))
+    vocabulary_map = {
+        tuple(k.split("\u241F")): v for k, v in  vocabulary_map_jsonsafe.items()
+    }
+    tokenizer = Tokenizer(vocabulary_map=vocabulary_map)
+    tokenizer.encode_input("The cat sat on the mat.")
+
+    print(tokenizer.encoded_tokens)
+    print(tokenizer.decode_input(tokenizer.encoded_tokens))
 
 if __name__ == "__main__":
     main()
