@@ -86,7 +86,23 @@ class AttentionHead:
         qkt_softmax = sp.special.softmax(q_dot_ktranspose, axis=1)
         self.attention = np.matmul(qkt_softmax, value) # x*(dmodel/h)
 
-        # TODO : Now using this attention matrix, how do we update the embeddings ?
+
+class LayerNorm:
+    """
+    Docstring for LayerNorm
+    """
+    def __init__(self, dmodel, eps=1e-5):
+        self.gamma = np.ones(dmodel)
+        self.beta = np.zeros(dmodel)
+        self.eps = eps
+
+    def forward(self, x):
+        # x shape: (num_tokens, dmodel)
+        mean = np.mean(x, axis=1, keepdims=True)
+        var = np.var(x, axis=1, keepdims=True)
+        x_norm = (x - mean) / np.sqrt(var + self.eps)
+        return self.gamma * x_norm + self.beta
+
 
 def main():
 
@@ -108,6 +124,9 @@ def main():
     vocabulary = open(os.path.join(OUTPUT_DIRECTORY, "vocabulary.txt"), 'r', encoding='utf-8').read().splitlines()
     embedder = Embedder(vocabulary=vocabulary, embedding_size=dmodel)
 
+    layer_norm1 = LayerNorm(dmodel)
+
+
     # Start the processing
     input_chunk = ["The cat sat on the mat."]
 
@@ -126,6 +145,8 @@ def main():
 
     # add the projection output to the original embeddings (residual connection)
     final_embeddings = Z_out + embeddings_matrix  # x*dmodel
+
+    attention_out = layer_norm1.forward(final_embeddings)
 
 
 if __name__ == "__main__":
