@@ -148,6 +148,16 @@ def main():
 
     attention_out = layer_norm1.forward(final_embeddings)
 
+    # TODO : add feed forward network after this --- IGNORE ---
+
+    # TODO : add the final linear layer for predictions, logits = X_out W_vocab + b
+    # where W_vocab is of size dmodel*vocab_size
+
+    # TODO : apply softmax to get probabilities over the vocabulary
+    # TODO : decoder attention with masking - this is different from the encoder attention implemented here
+
+    # TODO : loss function (categorical cross-entropy) and backpropagation to train the model
+
 
 if __name__ == "__main__":
     main()
